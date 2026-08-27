@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1117">
+<title>AutoCue</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ══════════ Library ══════════ -->
+<section id="screen-library" class="screen active">
+  <header class="lib-head">
+    <h1>AutoCue</h1>
+    <div class="lib-actions">
+      <button id="btn-new-piece" class="btn accent">+ Piece</button>
+      <button id="btn-new-ceremony" class="btn">+ Ceremony</button>
+      <button id="btn-export" class="btn">Export</button>
+      <button id="btn-import" class="btn">Import</button>
+      <input type="file" id="file-import" accept=".json,application/json" hidden>
+    </div>
+    <input id="search" type="search" placeholder="Search all pieces…" autocomplete="off">
+  </header>
+  <main id="lib-list"></main>
+  <p class="lib-foot">Content lives only on this device — Export regularly as a backup.</p>
+</section>
+
+<!-- ══════════ Editor ══════════ -->
+<section id="screen-editor" class="screen">
+  <header class="ed-head">
+    <button id="ed-back" class="btn">‹ Library</button>
+    <div class="spacer"></div>
+    <button id="ed-delete" class="btn danger">Delete</button>
+    <button id="ed-save" class="btn">Save</button>
+    <button id="ed-prompt" class="btn accent">Save &amp; Prompt ▶</button>
+  </header>
+  <div class="ed-body">
+    <div class="ed-fields">
+      <input id="ed-title" placeholder="Title" autocomplete="off">
+      <select id="ed-ceremony"></select>
+      <textarea id="ed-text" placeholder="Type or paste the piece here…" spellcheck="false"></textarea>
+      <p class="ed-help">Wrap stage directions in [square brackets] — shown dim &amp; italic, ignored by
+      voice-follow. Blank line starts a new paragraph.</p>
+    </div>
+    <div class="ed-preview-wrap">
+      <div class="ed-preview-label">Preview</div>
+      <article id="ed-preview" class="script"></article>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ Prompter ══════════ -->
+<section id="screen-prompter" class="screen">
+  <div id="scroller"><article id="script" class="script"></article></div>
+  <div id="marker" aria-hidden="true"></div>
+  <header id="bar-top" class="bar">
+    <button id="p-exit" class="btn">‹ Exit</button>
+    <div id="p-title"></div>
+    <button id="p-prev" class="btn" title="Previous piece">⏮</button>
+    <button id="p-next" class="btn" title="Next piece">⏭</button>
+  </header>
+  <footer id="bar-bottom" class="bar">
+    <button id="p-mode" class="btn mode-btn">Auto</button>
+    <button id="p-nudge" class="btn" title="Back a few lines">↩ 4</button>
+    <button id="p-restart" class="btn" title="Restart piece">⤒</button>
+    <span class="grp"><button id="p-slow" class="btn">🐢</button><span id="p-speed" class="ro">×1.0</span><button id="p-fast" class="btn">🐇</button></span>
+    <span class="grp"><button id="p-smaller" class="btn">A−</button><button id="p-bigger" class="btn">A+</button></span>
+  </footer>
+  <div id="pill" hidden></div>
+</section>
+
+<div id="toast" hidden></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
