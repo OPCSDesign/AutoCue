@@ -18,8 +18,12 @@
     <h1>AutoCue</h1>
     <div class="lib-actions">
       <button id="btn-new-piece" class="btn accent">+ Piece</button>
-      <button id="btn-new-ceremony" class="btn">+ Ceremony</button>
+      <span class="spacer"></span>
       <button id="btn-sync" class="btn" hidden>⟳ Sync</button>
+      <button id="btn-menu" class="btn" popovertarget="lib-menu" aria-label="Menu">☰</button>
+    </div>
+    <div id="lib-menu" popover>
+      <button id="btn-new-ceremony" class="btn">＋ New ceremony</button>
       <button id="btn-nc" class="btn">☁ Nextcloud</button>
       <button id="btn-voice" class="btn">🎙 Voice packs</button>
     </div>
@@ -27,7 +31,7 @@
     <div id="sync-status" hidden></div>
   </header>
   <main id="lib-list"></main>
-  <p class="lib-foot">Content lives only on this device — Export regularly as a backup.</p>
+  <p class="lib-foot" id="lib-foot">Content lives only on this device — Export regularly as a backup.</p>
 </section>
 
 <!-- ══════════ Editor ══════════ -->

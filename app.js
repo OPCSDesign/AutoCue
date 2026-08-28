@@ -224,6 +224,9 @@ let syncing = false;
 function setSyncStatus(msg) {
   const el = $('#sync-status');
   $('#btn-sync').hidden = !ncMode();
+  $('#lib-foot').textContent = ncMode()
+    ? 'Library synced from Nextcloud — an offline copy is kept on this device.'
+    : 'Content lives only on this device — Export regularly as a backup.';
   if (!ncMode()) { el.hidden = true; return; }
   el.hidden = false;
   el.textContent = msg ||
@@ -767,6 +770,9 @@ addEventListener('resize', () => {
 
 function bind() {
   $('#btn-new-piece').onclick = () => openEditor(null);
+  $('#lib-menu').addEventListener('click', e => {
+    if (e.target.closest('button')) $('#lib-menu').hidePopover();
+  });
   $('#btn-new-ceremony').onclick = newCeremony;
   $('#btn-export').onclick = doExport;
   $('#btn-import').onclick = () => $('#file-import').click();

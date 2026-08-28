@@ -38,7 +38,23 @@ button { font: inherit; }
 #screen-library { padding: max(12px, env(safe-area-inset-top)) 14px 14px; align-items: center; }
 .lib-head, #lib-list, .lib-foot { width: 100%; max-width: 680px; }
 .lib-head h1 { margin: 6px 0 12px; font-size: 26px; letter-spacing: .04em; color: var(--accent); }
-.lib-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.lib-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.lib-actions .spacer { flex: 1; }
+#btn-menu { font-size: 18px; line-height: 1; }
+#lib-menu {
+  position: fixed; inset: auto 14px auto auto;
+  top: max(64px, calc(env(safe-area-inset-top) + 56px));
+  margin: 0; padding: 6px; min-width: 220px;
+  background: var(--bg-raised); color: var(--fg);
+  border: 1px solid #2a3140; border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+}
+#lib-menu::backdrop { background: rgba(0, 0, 0, .25); }
+#lib-menu .btn {
+  display: block; width: 100%; text-align: left;
+  background: none; border: none; border-radius: 9px; padding: 13px 14px;
+}
+#lib-menu .btn:active { background: #222a38; }
 #search {
   width: 100%; padding: 12px 14px; border-radius: 12px;
   border: 1px solid #2a3140; background: var(--bg-raised); color: var(--fg);

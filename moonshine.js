@@ -56,7 +56,9 @@ const MODEL_FILES = [
 // pin the deterministic file set into the cache and free the memory.
 export async function download(progress) {
   await loadPipeline(progress);
-  const c = await caches.open('autocue-v3'); // keep in sync with sw.js CACHE
+  // find the app cache by prefix so sw.js version bumps don't need syncing here
+  const name = (await caches.keys()).find(k => k.startsWith('autocue-')) || 'autocue-v4';
+  const c = await caches.open(name);
   await c.addAll([
     ...MODEL_FILES.map(f => new URL('models/moonshine-tiny/' + f, document.baseURI).href),
     new URL('vendor/transformers/transformers.min.js', document.baseURI).href,

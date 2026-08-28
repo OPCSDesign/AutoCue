@@ -104,7 +104,10 @@ export async function downloadMoonshine(progress) {
 export async function removeMoonshine() {
   const keep = [];
   try {
-    const cache = await caches.open('autocue-v3');
+    // find the app cache by prefix so sw.js version bumps don't need syncing here
+    const name = (await caches.keys()).find(k => k.startsWith('autocue-'));
+    if (!name) return 0;
+    const cache = await caches.open(name);
     for (const req of await cache.keys()) {
       if (/\/vendor\/transformers\/|\/models\//.test(req.url)) await cache.delete(req);
       else keep.push(req.url);
