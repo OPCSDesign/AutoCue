@@ -842,13 +842,20 @@ function bindPrompterGestures() {
   }, { passive: true });
 }
 
-/* keyboard (desktop testing / bluetooth keyboards) */
+/* Keyboard — also covers Bluetooth page-turner rings, pedals and clickers,
+   which pair as tiny keyboards sending arrow/page keys:
+   ↑/PgUp = back a few lines · ↓/PgDn = forward · ←/→ = previous/next piece
+   Space/Enter = pause-resume · Home = restart piece */
 addEventListener('keydown', e => {
   if (screen !== 'prompter' || e.target.matches('input,textarea,select')) return;
   const k = e.key;
-  if (k === ' ') { e.preventDefault(); P.mode === 'manual' ? showBars() : (P.playing ? pause() : play()); }
-  else if (k === 'ArrowUp') { e.preventDefault(); nudge(-4); }
-  else if (k === 'ArrowDown') { e.preventDefault(); nudge(4); }
+  const togglePlay = () => P.mode === 'manual' ? showBars() : (P.playing ? pause() : play());
+  if (k === ' ' || k === 'Enter') { e.preventDefault(); togglePlay(); }
+  else if (k === 'ArrowUp' || k === 'PageUp') { e.preventDefault(); nudge(-4); }
+  else if (k === 'ArrowDown' || k === 'PageDown') { e.preventDefault(); nudge(4); }
+  else if (k === 'ArrowLeft') { e.preventDefault(); stepPiece(-1); }
+  else if (k === 'ArrowRight') { e.preventDefault(); stepPiece(1); }
+  else if (k === 'Home') { e.preventDefault(); setPos(0, true); scrollToPos(true); P.scrollF = 0; pause('Tap to start'); }
   else if (k === '+' || k === '=') changeFont(2);
   else if (k === '-') changeFont(-2);
   else if (k === ']') changeSpeed(0.1);

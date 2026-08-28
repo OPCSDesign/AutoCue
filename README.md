@@ -23,6 +23,9 @@ device in hand.
 - Stage directions in `[square brackets]` render dim and italic and are
   ignored by voice-follow.
 - Adjustable text size (buttons or pinch), screen wake-lock, dark theme.
+- Works with Bluetooth page-turner rings, pedals and clickers (any device
+  sending arrow or page keys): scroll nudges, previous/next piece,
+  pause/resume, restart.
 - Works fully offline once visited; **all content stays in the browser's
   local storage on your device** — nothing is uploaded anywhere. Transfer
   between devices with Export / Import (a single JSON file).
