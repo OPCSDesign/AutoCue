@@ -1,14 +1,21 @@
-# TracingBoard ↔ Nextcloud setup
+# TracingBoard ↔ cloud storage setup
 
-TracingBoard can keep its whole library in your Nextcloud so every device
-reads the same content, while still caching everything locally for offline
-use. (The folder — like the app's URL and repository — keeps the original
-`AutoCue` name so existing setups never break.)
+TracingBoard can keep its whole library in your own cloud storage so every
+device reads the same content, while still caching everything locally for
+offline use. Nextcloud is the first-class option; **any WebDAV-capable
+provider works too** (ownCloud, Synology, Koofr, pCloud, Hetzner Storage
+Share…) — pick "Other WebDAV storage" when connecting and enter the
+provider's full WebDAV address.
+
+When you connect, a folder browser lets you pick — or create — the folder
+the library lives in, anywhere in your file structure. (Setups made before
+this feature keep using their original root-level `AutoCue` folder
+automatically.)
 
 ## Folder layout
 
 ```
-AutoCue/
+<your chosen folder>/   e.g. Documents/Lodge/TracingBoard/
 ├── 01 - Installation/
 │   ├── 01 - Opening Address.md
 │   └── 02 - Address to the Brethren.md
@@ -108,11 +115,23 @@ Advanced → Custom Nginx Configuration.
 1. In Nextcloud: Settings → Security → Devices & sessions → create an **app
    password** (name it e.g. “TracingBoard phone”). One per device; revocable
    individually.
-2. In TracingBoard: ☰ → ☁ Nextcloud → enter server address, username, app password →
-   Connect.
+2. In TracingBoard: ☰ → ☁ Cloud sync → pick your provider → enter server
+   address, username, app password → Connect → browse to (or create) the
+   library folder → Use this folder.
 3. First device with existing content: use **Upload** when offered — it
    creates the folder structure from your current library. Every other device
    just pulls.
+
+## Other WebDAV providers
+
+Choose "Other WebDAV storage" and enter the **full WebDAV URL** your provider
+documents (for example `https://app.koofr.net/dav/Koofr/` or a Synology's
+WebDAV port). Everything else — folder browser, sync, offline copy — works
+identically. One requirement stands for every provider: the server must allow
+browser (CORS) access from `https://opcsdesign.github.io`. Nextcloud gets
+this via the WebAppPassword app or proxy snippets above; for other providers,
+check whether CORS can be enabled — where it can't, that provider
+unfortunately can't be used from a browser app.
 
 ## Troubleshooting
 

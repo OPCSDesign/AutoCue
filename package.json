@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Dev-only: test tooling for AutoCue (the app itself has no dependencies or build step).",
   "scripts": {
-    "test": "node test-matcher.mjs && node test-moonshine.mjs"
+    "test": "node test-matcher.mjs && node test-webdav.mjs && node test-moonshine.mjs"
   },
   "devDependencies": {
     "@huggingface/transformers": "^4.2.0"

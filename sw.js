@@ -1,8 +1,8 @@
 // Cache-first app shell so TracingBoard keeps working with no signal.
 // voice.js and moonshine.js find this cache by its 'autocue-' prefix.
-const CACHE = 'autocue-v10';
+const CACHE = 'autocue-v11';
 const SHELL = ['./', './index.html', './style.css', './app.js', './matcher.js',
-               './voice.js', './moonshine.js', './nextcloud.js',
+               './voice.js', './moonshine.js', './webdav.js',
                './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

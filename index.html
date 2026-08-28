@@ -24,7 +24,7 @@
     </div>
     <div id="lib-menu" popover>
       <button id="btn-new-ceremony" class="btn">＋ New ceremony</button>
-      <button id="btn-nc" class="btn">☁ Nextcloud</button>
+      <button id="btn-nc" class="btn">☁ Cloud sync</button>
       <button id="btn-voice" class="btn">🎙 Voice packs</button>
     </div>
     <input id="search" type="search" placeholder="Search all pieces…" autocomplete="off">
@@ -79,28 +79,46 @@
 </section>
 
 <dialog id="dlg-nc">
-  <h2>Nextcloud</h2>
+  <h2>Cloud sync</h2>
   <div id="nc-signin">
-    <p class="dlg-sub">Keep your library in an <strong>AutoCue</strong> folder in Nextcloud — one folder
-    per ceremony, one .md file per piece, “01 - ” prefixes set the running order. Every device reads
-    the same library; this app keeps an offline copy for the lodge.</p>
+    <p class="dlg-sub">Keep your library in a folder on your own cloud storage — one subfolder per
+    ceremony, one .md file per piece, “01 - ” prefixes set the running order. Every device reads the
+    same library; this app keeps an offline copy for the lodge. You choose the folder after connecting.</p>
+    <select id="nc-provider">
+      <option value="nextcloud">Nextcloud</option>
+      <option value="webdav">Other WebDAV storage (ownCloud, Synology, Koofr…)</option>
+    </select>
     <input id="nc-server" placeholder="https://cloud.example.com" autocomplete="off">
     <input id="nc-user" placeholder="Username" autocomplete="off">
     <input id="nc-pass" type="password" placeholder="App password" autocomplete="off">
-    <p class="dlg-sub">Use a dedicated app password (Nextcloud → Settings → Security). One-off server
-    setup for browser access (CORS) is described in NEXTCLOUD.md in the AutoCue repository.</p>
+    <p class="dlg-sub" id="nc-provider-help"></p>
     <div id="nc-msg" class="dim"></div>
     <button id="nc-connect" class="btn accent">Connect</button>
   </div>
+  <div id="nc-browse" hidden>
+    <p class="dlg-sub">Choose the folder that holds (or will hold) your library.</p>
+    <div id="nc-crumb"></div>
+    <div id="nc-dirs"></div>
+    <div class="browse-actions">
+      <button id="nc-newfolder" class="btn">New folder</button>
+      <button id="nc-browse-cancel" class="btn">Cancel</button>
+      <button id="nc-use" class="btn accent">Use this folder</button>
+    </div>
+  </div>
   <div id="nc-connected" hidden>
     <div class="pack">
-      <div><strong id="nc-account"></strong><br><span id="nc-status" class="dim"></span></div>
+      <div><strong id="nc-account"></strong><br><span id="nc-folder" class="dim"></span><br>
+      <span id="nc-status" class="dim"></span></div>
       <button id="nc-sync" class="btn">Sync now</button>
     </div>
     <div class="pack" id="nc-migrate-row" hidden>
-      <div><strong>First sync</strong><br><span class="dim" id="nc-migrate-msg">Nextcloud’s AutoCue folder is
+      <div><strong>First sync</strong><br><span class="dim" id="nc-migrate-msg">The chosen folder is
       empty — upload this device’s library to it?</span></div>
       <button id="nc-migrate" class="btn accent">Upload</button>
+    </div>
+    <div class="pack">
+      <div><strong>Library folder</strong><br><span class="dim">Move the library elsewhere or point at a different one.</span></div>
+      <button id="nc-changefolder" class="btn">Change folder</button>
     </div>
     <button id="nc-signout" class="btn danger">Sign out</button>
   </div>

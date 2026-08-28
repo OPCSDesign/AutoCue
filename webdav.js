@@ -1,13 +1,21 @@
-// Nextcloud WebDAV sync — pull-mostly, tiny push surface.
-// The library lives in {server}/remote.php/dav/files/{user}/AutoCue/:
-// one folder per ceremony, one .md/.txt file per piece, "01 - " prefixes give
-// the running order. Pure helpers (parse/assemble/naming) are exported for
-// test-nextcloud.mjs; only pull/push/mkcol/migrate touch the network.
+// Cloud storage over WebDAV — pull-mostly sync, tiny push surface.
+// Works against Nextcloud (friendly mode: server + username derive the DAV
+// URL) or any plain WebDAV endpoint (the user supplies the full DAV URL).
+// The library lives in a user-chosen folder: one subfolder per ceremony, one
+// .md/.txt file per piece, "01 - " prefixes give the running order.
+// Pure helpers are exported for test-webdav.mjs; only the client section
+// touches the network.
 
 const NC_KEY = 'autocue.nc';
 
+// Older stored configs predate mode/path — they were Nextcloud with an
+// AutoCue folder at the root, and must keep working untouched.
+export function normalizeConfig(c) {
+  if (!c) return null;
+  return { mode: 'nextcloud', path: 'AutoCue', ...c };
+}
 export function ncConfig() {
-  try { return JSON.parse(localStorage.getItem(NC_KEY)); } catch { return null; }
+  try { return normalizeConfig(JSON.parse(localStorage.getItem(NC_KEY))); } catch { return null; }
 }
 export function ncSave(cfg) { localStorage.setItem(NC_KEY, JSON.stringify(cfg)); }
 export function ncSignOut() { localStorage.removeItem(NC_KEY); }
@@ -27,13 +35,20 @@ export const naturalSort = arr =>
   [...arr].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 export const safeName = s => s.replace(/[\\/:*?"<>|]/g, '-').trim();
 export const pad2 = n => String(n).padStart(2, '0');
+const encodePath = p => p.split('/').filter(Boolean).map(encodeURIComponent).join('/');
 
-// Minimal entity decoding for DAV hrefs/etags (sabre emits well-formed XML).
+// Where the provider's DAV tree starts, and where the chosen library folder is.
+export const davBase = cfg => cfg.mode === 'webdav'
+  ? cfg.server.replace(/\/+$/, '') + '/'
+  : `${cfg.server}/remote.php/dav/files/${encodeURIComponent(cfg.user)}/`;
+export const libBase = cfg => davBase(cfg) + (cfg.path ? encodePath(cfg.path) + '/' : '');
+
+// Minimal entity decoding for DAV hrefs/etags (sabre & friends emit well-formed XML).
 const unent = s => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
                     .replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
 // ponytail: regex extraction instead of DOMParser so the same code runs in the
-// node tests; Nextcloud's sabre/dav multistatus output is stable and simple.
+// node tests; multistatus output from mainstream DAV servers is stable.
 export function parseMultistatus(xml, rootAbs) {
   rootAbs = rootAbs.replace(/\/+$/, '') + '/';
   const out = [];
@@ -52,8 +67,6 @@ export function parseMultistatus(xml, rootAbs) {
 }
 
 // Decide the new library shape from listings + the previous pieces (etag diff).
-// Returns { ceremonies, kept, toFetch } — kept are pieces reused as-is,
-// toFetch = [{path, name, ceremonyId, order, etag}] whose bodies need a GET.
 export function assembleLibrary(rootEntries, perDir, prevPieces) {
   const dirs = naturalSort(rootEntries.filter(e => e.isDir));
   const ceremonies = dirs.map((d, i) => ({ id: d.path, name: stripPrefix(d.name), order: i }));
@@ -85,12 +98,8 @@ export function nextFilename(siblingNames, title) {
 
 /* ── WebDAV client ── */
 
-const davRoot = cfg => `${cfg.server}/remote.php/dav/files/${encodeURIComponent(cfg.user)}/`;
-const base = cfg => davRoot(cfg) + 'AutoCue/';
-const encodePath = p => p.split('/').map(encodeURIComponent).join('/');
-
-async function dav(cfg, method, path, { headers = {}, body, root = false } = {}) {
-  return fetch((root ? davRoot(cfg) : base(cfg)) + path, {
+async function dav(cfg, method, url, { headers = {}, body } = {}) {
+  return fetch(url, {
     method, body,
     headers: { Authorization: 'Basic ' + btoa(cfg.user + ':' + cfg.pass), ...headers },
   });
@@ -98,50 +107,68 @@ async function dav(cfg, method, path, { headers = {}, body, root = false } = {})
 
 const PROPFIND_BODY =
   '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:getetag/><d:resourcetype/></d:prop></d:propfind>';
+const PF_HEADERS = depth => ({ Depth: depth, 'Content-Type': 'application/xml' });
 
-async function list(cfg, relPath, depth = '1') {
-  const res = await dav(cfg, 'PROPFIND', relPath ? encodePath(relPath) + '/' : '', {
-    headers: { Depth: depth, 'Content-Type': 'application/xml' }, body: PROPFIND_BODY,
-  });
+async function listAt(cfg, baseUrl, relPath, depth = '1') {
+  const url = baseUrl + (relPath ? encodePath(relPath) + '/' : '');
+  const res = await dav(cfg, 'PROPFIND', url, { headers: PF_HEADERS(depth), body: PROPFIND_BODY });
   if (!res.ok) { const e = new Error('PROPFIND ' + res.status); e.status = res.status; throw e; }
-  const rootAbs = new URL(base(cfg)).pathname + (relPath ? relPath + '/' : '');
-  return parseMultistatus(await res.text(), decodeURIComponent(rootAbs))
+  const rootAbs = decodeURIComponent(new URL(url).pathname);
+  return parseMultistatus(await res.text(), rootAbs)
     .map(x => relPath ? { ...x, path: relPath + '/' + x.path } : x);
+}
+const listLib = (cfg, rel) => listAt(cfg, libBase(cfg), rel);
+
+// Folder browsing (relative to the provider's DAV root, for the picker).
+export async function listFolders(cfg, relPath) {
+  return naturalSort((await listAt(cfg, davBase(cfg), relPath)).filter(e => e.isDir));
+}
+export async function mkcolAt(cfg, relPath) {
+  const res = await dav(cfg, 'MKCOL', davBase(cfg) + encodePath(relPath) + '/');
+  if (!res.ok && res.status !== 405) throw new Error('MKCOL ' + res.status);
+}
+
+async function propfind0(cfg, url) {
+  return dav(cfg, 'PROPFIND', url, { headers: PF_HEADERS('0'), body: PROPFIND_BODY });
+}
+
+// Credentials/reachability only: 'ok' | 'auth' | 'network'
+export async function checkAuth(cfg) {
+  try {
+    const res = await propfind0(cfg, davBase(cfg));
+    if (res.ok) return 'ok';
+    return res.status === 401 || res.status === 403 ? 'auth' : 'network';
+  } catch { return 'network'; } // CORS misconfig and offline both land here
+}
+
+// Full check incl. the chosen library folder: 'ok' | 'missing' | 'auth' | 'network'
+export async function checkConnection(cfg) {
+  const auth = await checkAuth(cfg);
+  if (auth !== 'ok') return auth;
+  try {
+    const res = await propfind0(cfg, libBase(cfg));
+    if (res.ok) return 'ok';
+    return res.status === 404 ? 'missing' : 'network';
+  } catch { return 'network'; }
 }
 
 export async function statEtag(cfg, path) {
-  const res = await dav(cfg, 'PROPFIND', encodePath(path), {
-    headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY,
-  });
+  const res = await propfind0(cfg, libBase(cfg) + encodePath(path));
   if (!res.ok) return null;
   const m = (await res.text()).match(/<(?:[\w-]+:)?getetag(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w-]+:)?getetag>/);
   return m ? unent(m[1]).replace(/^W\//, '').replace(/"/g, '') : null;
 }
 
-// status: 'ok' | 'missing' (auth fine, no AutoCue folder) | 'auth' | 'network'
-export async function checkConnection(cfg) {
-  try {
-    const res = await dav(cfg, 'PROPFIND', '', { headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY });
-    if (res.ok) return 'ok';
-    if (res.status === 401 || res.status === 403) return 'auth';
-    if (res.status === 404) {
-      const home = await dav(cfg, 'PROPFIND', '', { root: true, headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: PROPFIND_BODY });
-      return home.ok ? 'missing' : home.status === 401 || home.status === 403 ? 'auth' : 'network';
-    }
-    return 'network';
-  } catch { return 'network'; } // CORS misconfig and offline both land here
-}
-
 export async function pull(cfg, prevPieces) {
-  const rootEntries = await list(cfg, '');
+  const rootEntries = await listLib(cfg, '');
   const dirs = rootEntries.filter(e => e.isDir);
   const perDir = {};
-  await Promise.all(dirs.map(async d => { perDir[d.path] = await list(cfg, d.path); }));
+  await Promise.all(dirs.map(async d => { perDir[d.path] = await listLib(cfg, d.path); }));
   const { ceremonies, kept, toFetch } = assembleLibrary(rootEntries, perDir, prevPieces);
   const fetched = [];
   for (let i = 0; i < toFetch.length; i += 6) {
     await Promise.all(toFetch.slice(i, i + 6).map(async meta => {
-      const res = await dav(cfg, 'GET', encodePath(meta.id));
+      const res = await dav(cfg, 'GET', libBase(cfg) + encodePath(meta.id));
       if (!res.ok) throw new Error('GET ' + res.status);
       fetched.push({ ...meta, body: await res.text() });
     }));
@@ -154,7 +181,7 @@ export async function pull(cfg, prevPieces) {
 // Save an edited body. Returns {etag} on success, {conflict:true} if the file
 // changed on another device since we pulled it.
 export async function pushBody(cfg, path, body, etag) {
-  const res = await dav(cfg, 'PUT', encodePath(path), {
+  const res = await dav(cfg, 'PUT', libBase(cfg) + encodePath(path), {
     headers: { 'If-Match': `"${etag}"`, 'Content-Type': 'text/markdown' }, body,
   });
   if (res.status === 412) return { conflict: true };
@@ -164,7 +191,7 @@ export async function pushBody(cfg, path, body, etag) {
 
 export async function createPiece(cfg, folder, filename, body) {
   const path = folder ? folder + '/' + filename : filename;
-  const res = await dav(cfg, 'PUT', encodePath(path), {
+  const res = await dav(cfg, 'PUT', libBase(cfg) + encodePath(path), {
     headers: { 'If-None-Match': '*', 'Content-Type': 'text/markdown' }, body,
   });
   if (res.status === 412) throw new Error('A file with that name already exists');
@@ -173,11 +200,11 @@ export async function createPiece(cfg, folder, filename, body) {
 }
 
 export async function mkcol(cfg, folder) {
-  const res = await dav(cfg, 'MKCOL', folder ? encodePath(folder) + '/' : '');
+  const res = await dav(cfg, 'MKCOL', libBase(cfg) + (folder ? encodePath(folder) + '/' : ''));
   if (!res.ok && res.status !== 405) throw new Error('MKCOL ' + res.status); // 405 = already exists
 }
 
-// One-time upload of this device's library into an empty/missing AutoCue folder.
+// One-time upload of this device's library into an empty/missing library folder.
 export async function migrate(cfg, store) {
   await mkcol(cfg, '');
   const ceremonies = [...store.ceremonies].sort((a, b) => a.order - b.order);
@@ -194,7 +221,9 @@ export async function migrate(cfg, store) {
       const folder = cid ? folderOf[cid] : '';
       const filename = `${pad2(i + 1)} - ${safeName(items[i].title)}.md`;
       const path = folder ? folder + '/' + filename : filename;
-      await dav(cfg, 'PUT', encodePath(path), { headers: { 'Content-Type': 'text/markdown' }, body: items[i].body });
+      const res = await dav(cfg, 'PUT', libBase(cfg) + encodePath(path),
+        { headers: { 'Content-Type': 'text/markdown' }, body: items[i].body });
+      if (!res.ok) throw new Error('PUT ' + res.status);
     }
   }
 }

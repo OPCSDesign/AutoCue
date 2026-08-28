@@ -1,8 +1,25 @@
-// Self-check for the Nextcloud sync helpers: node test-nextcloud.mjs
+// Self-check for the WebDAV storage helpers: node test-webdav.mjs
 import assert from 'node:assert';
 import {
   parseMultistatus, assembleLibrary, stripPrefix, titleOf, naturalSort, nextFilename,
-} from './nextcloud.js';
+  normalizeConfig, davBase, libBase,
+} from './webdav.js';
+
+// ── config normalisation & base URLs ──
+// legacy config (pre mode/path) must resolve to Nextcloud + AutoCue at root
+const legacy = normalizeConfig({ server: 'https://cloud.x.uk', user: 'steve', pass: 'p' });
+assert.strictEqual(legacy.mode, 'nextcloud');
+assert.strictEqual(legacy.path, 'AutoCue');
+assert.strictEqual(davBase(legacy), 'https://cloud.x.uk/remote.php/dav/files/steve/');
+assert.strictEqual(libBase(legacy), 'https://cloud.x.uk/remote.php/dav/files/steve/AutoCue/');
+// generic webdav mode: server IS the DAV url; nested chosen folder is encoded
+const generic = { mode: 'webdav', server: 'https://nas:5006/dav', user: 'u', pass: 'p', path: 'Lodge Files/TracingBoard' };
+assert.strictEqual(davBase(generic), 'https://nas:5006/dav/');
+assert.strictEqual(libBase(generic), 'https://nas:5006/dav/Lodge%20Files/TracingBoard/');
+// nextcloud mode with a chosen nested path
+const ncNested = normalizeConfig({ server: 'https://c.x', user: 'a b', pass: 'p', mode: 'nextcloud', path: 'Documents/TB' });
+assert.strictEqual(libBase(ncNested), 'https://c.x/remote.php/dav/files/a%20b/Documents/TB/');
+assert.strictEqual(normalizeConfig(null), null);
 
 // ── multistatus parsing (shape matches Nextcloud's sabre/dav output) ──
 const ROOT = '/remote.php/dav/files/steve/AutoCue/';
@@ -79,4 +96,4 @@ assert.strictEqual(nextFilename([], 'First'), '01 - First.md');
 assert.strictEqual(nextFilename(['Plain.md'], 'Another'), 'Another.md', 'unnumbered folder stays unnumbered');
 assert.strictEqual(nextFilename(['01 - A.md'], 'Bad/Name: x'), '02 - Bad-Name- x.md', 'filesystem-unsafe chars replaced');
 
-console.log('nextcloud self-check: all assertions passed');
+console.log('webdav self-check: all assertions passed');

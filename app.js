@@ -3,7 +3,7 @@ import {
   startVoice as voiceStart, stopVoice as voiceStop,
   nativeLocalAvailability, installNativePack, downloadMoonshine, removeMoonshine,
 } from './voice.js';
-import * as NC from './nextcloud.js';
+import * as NC from './webdav.js';
 
 const ncMode = () => !!NC.ncConfig();
 
@@ -48,15 +48,15 @@ When you are ready, press Exit and add your first piece.`
 
 The simple way: create and edit them right here, using the pencil and the plus Piece button. Everything then lives on this device alone.
 
-The better way, if you use more than one device: keep the whole library in Nextcloud. Open the menu, choose Nextcloud, and connect with your server address and an app password. The one-off server preparation is described in the NEXTCLOUD guide in the app's code repository.
+The better way, if you use more than one device: keep the whole library in your own cloud storage — Nextcloud, or any WebDAV provider. Open the menu, choose Cloud sync, connect with an app password, and pick or create the folder you want the library to live in. The one-off server preparation is described in the NEXTCLOUD guide in the app's code repository.
 
-[In Nextcloud: an AutoCue folder, one folder per ceremony, one .md file per piece.]
+[In your cloud folder: one subfolder per ceremony, one .md file per piece.]
 
 Give files a number to set the running order, such as 01 - Opening Address.md — the numbers stay hidden here. A blank line starts a new paragraph, and directions go in square brackets.
 
-Once connected, edit pieces anywhere: in any editor on your computer, in the Nextcloud apps, or right here — edits made here are saved straight back. Rename, reorder, move or delete pieces in Nextcloud's files app, then tap Sync. The app always keeps an offline copy, so nothing depends on a connection when it matters.
+Once connected, edit pieces anywhere: in any editor on your computer, in your cloud provider's apps, or right here — edits made here are saved straight back. Rename, reorder, move or delete pieces in your provider's files app, then tap Sync. The app always keeps an offline copy, so nothing depends on a connection when it matters.
 
-Two last things live in the menu: Voice packs, where one download makes Voice mode work without internet, and the Nextcloud dialog's Export and Import, kept as an occasional backup.`
+Two last things live in the menu: Voice packs, where one download makes Voice mode work without internet, and the Cloud sync dialog's Export and Import, kept as an occasional backup.`
       },
     ],
     settings: { fs: 28, speed: 1.0, mode: 'auto', openCeremonies: [cid] }, // tutorial starts open
@@ -238,7 +238,7 @@ function setSyncStatus(msg) {
   const el = $('#sync-status');
   $('#btn-sync').hidden = !ncMode();
   $('#lib-foot').textContent = ncMode()
-    ? 'Library synced from Nextcloud — an offline copy is kept on this device.'
+    ? 'Library synced from your cloud folder — an offline copy is kept on this device.'
     : 'Content lives only on this device — Export regularly as a backup.';
   if (!ncMode()) { el.hidden = true; return; }
   el.hidden = false;
@@ -255,7 +255,7 @@ async function syncNow({ silent } = {}) {
     if (!pieces.length && store.pieces.length && !store.settings.ncSynced) {
       // never wipe a local library against a still-empty remote — offer upload instead
       setSyncStatus();
-      if (!silent) toast('Nextcloud’s AutoCue folder is empty — use Upload in the ☁ dialog first');
+      if (!silent) toast('Your library folder is empty — use Upload in the ☁ dialog first');
     } else {
       store.ceremonies = ceremonies; store.pieces = pieces;
       store.settings.lastSync = timeNow();
@@ -269,57 +269,131 @@ async function syncNow({ silent } = {}) {
   syncing = false;
 }
 
+let ncPending = null; // validated credentials awaiting a folder choice
+let browsePath = '';
+
+function showNcSection(name) {
+  for (const s of ['signin', 'browse', 'connected'])
+    $('#nc-' + s).hidden = s !== name;
+}
+
 function refreshNcDialog() {
   const cfg = NC.ncConfig();
-  $('#nc-signin').hidden = !!cfg;
-  $('#nc-connected').hidden = !cfg;
+  showNcSection(cfg ? 'connected' : 'signin');
   $('#btn-import').disabled = !!cfg;
-  $('#btn-import').title = cfg ? 'Sign out of Nextcloud to import a backup file' : '';
+  $('#btn-import').title = cfg ? 'Sign out of cloud sync to import a backup file' : '';
   if (cfg) {
     $('#nc-account').textContent = `${cfg.user} @ ${cfg.server.replace(/^https?:\/\//, '')}`;
+    $('#nc-folder').textContent = '/' + (cfg.path || '');
     $('#nc-status').textContent = store.settings.lastSync ? `Last sync ${store.settings.lastSync}` : 'Not synced yet';
-  }
+  } else providerHelp();
+}
+
+function providerHelp() {
+  const webdav = $('#nc-provider').value === 'webdav';
+  $('#nc-server').placeholder = webdav ? 'https://server/dav/ (full WebDAV address)' : 'https://cloud.example.com';
+  $('#nc-provider-help').textContent = webdav
+    ? 'Enter your provider’s full WebDAV address, plus username and password (use an app password where offered). The server must allow browser access (CORS) — see the guide in the repository.'
+    : 'Use a dedicated app password (Nextcloud → Settings → Security). The one-off server setup for browser access (CORS) is described in NEXTCLOUD.md in the repository.';
 }
 
 async function ncConnect() {
   const cfg = {
+    mode: $('#nc-provider').value,
     server: NC.normalizeServer($('#nc-server').value),
     user: $('#nc-user').value.trim(),
     pass: $('#nc-pass').value,
+    path: '',
   };
   const msg = $('#nc-msg');
   if (!cfg.server || !cfg.user || !cfg.pass) { msg.textContent = 'Fill in all three fields.'; return; }
   const btn = $('#nc-connect');
   btn.disabled = true; msg.textContent = 'Connecting…';
+  const status = await NC.checkAuth(cfg);
+  btn.disabled = false;
+  if (status === 'auth') { msg.textContent = 'Sign-in failed — check the username and password.'; return; }
+  if (status === 'network') {
+    msg.textContent = 'Could not reach the server. Check the address — and that the one-off CORS setup from the guide is in place.';
+    return;
+  }
+  msg.textContent = '';
+  ncPending = cfg; browsePath = '';
+  showNcSection('browse');
+  renderBrowse();
+}
+
+async function renderBrowse() {
+  $('#nc-crumb').textContent = '/' + browsePath;
+  $('#nc-use').disabled = !browsePath; // the account root itself can't be the library
+  const listEl = $('#nc-dirs');
+  listEl.innerHTML = '<p class="empty">Loading…</p>';
+  let dirs;
+  try { dirs = await NC.listFolders(ncPending, browsePath); }
+  catch (e) { listEl.innerHTML = `<p class="empty">Could not list folders (${esc(e.message)}).</p>`; return; }
+  listEl.textContent = '';
+  if (browsePath) {
+    const up = document.createElement('button');
+    up.className = 'dir-row'; up.textContent = '⬑  ..';
+    up.onclick = () => { browsePath = browsePath.split('/').slice(0, -1).join('/'); renderBrowse(); };
+    listEl.appendChild(up);
+  }
+  for (const d of dirs) {
+    const b = document.createElement('button');
+    b.className = 'dir-row'; b.textContent = '📁 ' + d.name;
+    b.onclick = () => { browsePath = d.path; renderBrowse(); };
+    listEl.appendChild(b);
+  }
+  if (!dirs.length && !browsePath)
+    listEl.innerHTML = '<p class="empty">No folders here yet — create one below.</p>';
+}
+
+async function ncNewFolder() {
+  const name = prompt('New folder name:', browsePath ? '' : 'TracingBoard');
+  if (!name?.trim()) return;
+  const path = (browsePath ? browsePath + '/' : '') + NC.safeName(name.trim());
+  try { await NC.mkcolAt(ncPending, path); browsePath = path; renderBrowse(); }
+  catch (e) { toast('Could not create folder: ' + e.message); }
+}
+
+async function ncUseFolder() {
+  const cfg = { ...ncPending, path: browsePath };
+  const btn = $('#nc-use'); btn.disabled = true;
   try {
-    const status = await NC.checkConnection(cfg);
-    if (status === 'auth') { msg.textContent = 'Sign-in failed — check the username and app password.'; return; }
-    if (status === 'network') {
-      msg.textContent = 'Could not reach the server. Check the address — and that the one-off CORS setup from NEXTCLOUD.md is in place.';
-      return;
-    }
-    if (status === 'missing') await NC.mkcol(cfg, '');
     const remote = await NC.pull(cfg, []);
     const hasLocal = store.pieces.length > 0;
     if (remote.pieces.length && hasLocal &&
-        !confirm('Nextcloud already holds an AutoCue library. Replace the content on this device with it?\n(Export a backup first if unsure.)')) {
-      msg.textContent = 'Cancelled — nothing changed.'; return;
+        !confirm('That folder already holds a library. Replace the content on this device with it?\n(Export a backup first if unsure.)')) {
+      btn.disabled = false; return;
     }
-    NC.ncSave(cfg);
-    msg.textContent = '';
+    NC.ncSave(cfg); ncPending = null;
+    $('#nc-pass').value = '';
     if (remote.pieces.length || !hasLocal) {
       store.ceremonies = remote.ceremonies; store.pieces = remote.pieces;
       store.settings.lastSync = timeNow(); store.settings.ncSynced = remote.pieces.length > 0;
       save(); renderLibrary();
-      toast('Connected to Nextcloud');
+      toast('Cloud sync connected');
+      $('#nc-migrate-row').hidden = true;
     } else {
-      $('#nc-migrate-row').hidden = false; // fresh remote + local content → offer upload
+      store.settings.ncSynced = false; save();
+      $('#nc-migrate-row').hidden = false; // empty folder + local content → offer upload
     }
-    $('#nc-pass').value = '';
     refreshNcDialog(); setSyncStatus();
   } catch (e) {
-    msg.textContent = 'Connection failed: ' + e.message;
-  } finally { btn.disabled = false; }
+    toast('Could not read that folder: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+function ncChangeFolder() {
+  ncPending = { ...NC.ncConfig() };
+  browsePath = '';
+  showNcSection('browse');
+  renderBrowse();
+}
+
+function ncBrowseCancel() {
+  ncPending = null;
+  refreshNcDialog();
 }
 
 async function ncMigrate() {
@@ -338,7 +412,7 @@ async function ncMigrate() {
 }
 
 function ncSignOut() {
-  if (!confirm('Sign out of Nextcloud on this device? The library stays here as a local copy.')) return;
+  if (!confirm('Sign out of cloud sync on this device? The library stays here as a local copy.')) return;
   NC.ncSignOut();
   store.settings.ncSynced = false; save();
   refreshNcDialog(); setSyncStatus(); renderLibrary();
@@ -420,7 +494,7 @@ function openEditor(id) {
   $('#ed-ceremony').disabled = locked;
   $('#ed-delete').style.visibility = p && !ncMode() ? 'visible' : 'hidden';
   $('#ed-help').textContent = ncMode()
-    ? 'Text edits save back to Nextcloud. Rename, move, reorder or delete pieces in the Nextcloud files app. [Square brackets] = stage directions; blank line = new paragraph.'
+    ? 'Text edits save back to your cloud folder. Rename, move, reorder or delete pieces in your cloud storage’s files app. [Square brackets] = stage directions; blank line = new paragraph.'
     : 'Wrap stage directions in [square brackets] — shown dim & italic, ignored by voice-follow. Blank line starts a new paragraph.';
   renderScriptInto($('#ed-preview'), p?.body || '');
   enterSub('editor');
@@ -791,8 +865,13 @@ function bind() {
   $('#btn-import').onclick = () => $('#file-import').click();
   $('#btn-sync').onclick = () => syncNow();
   $('#btn-nc').onclick = () => { refreshNcDialog(); $('#dlg-nc').showModal(); };
-  $('#nc-close').onclick = () => $('#dlg-nc').close();
+  $('#nc-close').onclick = () => { ncPending = null; $('#dlg-nc').close(); };
+  $('#nc-provider').onchange = providerHelp;
   $('#nc-connect').onclick = ncConnect;
+  $('#nc-newfolder').onclick = ncNewFolder;
+  $('#nc-use').onclick = ncUseFolder;
+  $('#nc-browse-cancel').onclick = ncBrowseCancel;
+  $('#nc-changefolder').onclick = ncChangeFolder;
   $('#nc-sync').onclick = () => { syncNow(); refreshNcDialog(); };
   $('#nc-migrate').onclick = ncMigrate;
   $('#nc-signout').onclick = ncSignOut;

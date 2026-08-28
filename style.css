@@ -157,6 +157,27 @@ dialog input {
 }
 #nc-msg { min-height: 1.2em; margin-bottom: 8px; color: #f0a49c; font-size: 14px; }
 #nc-signout, #nc-connect { width: 100%; margin-top: 4px; }
+dialog select {
+  width: 100%; padding: 11px 12px; border-radius: 10px; margin-bottom: 8px;
+  border: 1px solid #2a3140; background: var(--bg); color: var(--fg); font-size: 16px;
+}
+#nc-crumb {
+  font: 13px/1.4 ui-monospace, Consolas, monospace; color: var(--accent);
+  padding: 6px 2px; overflow-x: auto; white-space: nowrap;
+}
+#nc-dirs {
+  max-height: 38vh; overflow-y: auto; border: 1px solid #232a37;
+  border-radius: 10px; margin-bottom: 10px;
+}
+.dir-row {
+  display: block; width: 100%; text-align: left; font: inherit;
+  background: none; border: none; border-bottom: 1px solid #1d2430;
+  color: var(--fg); padding: 12px 14px; cursor: pointer;
+}
+.dir-row:last-child { border-bottom: none; }
+.dir-row:active { background: #222a38; }
+.browse-actions { display: flex; gap: 8px; }
+.browse-actions .btn { flex: 1; }
 #sync-status { color: var(--fg-dim); font-size: 13px; margin: -6px 0 10px; }
 .dlg-sub { color: var(--fg-dim); font-size: 14px; margin: 0 0 10px; }
 .pack {
