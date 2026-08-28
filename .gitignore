@@ -1,2 +1,4 @@
 .remember/
 .claude/
+node_modules/
+.tmp-*

@@ -1,4 +1,8 @@
 import { normWords, advance } from './matcher.js';
+import {
+  startVoice as voiceStart, stopVoice as voiceStop,
+  nativeLocalAvailability, installNativePack, downloadMoonshine, removeMoonshine,
+} from './voice.js';
 
 const $ = s => document.querySelector(s);
 const uuid = () => crypto.randomUUID();
@@ -39,6 +43,8 @@ When you are ready, press Exit and add your first piece.`
         body: `Prepare your pieces on a computer at this same web address, then press Export in the library to download a single backup file.
 
 Send that file to this device however you like — email, Google Drive, or a cable — then press Import here. Importing replaces the content on this device with the file, so edit in one place and export afterwards.
+
+For Voice mode without internet, open Voice packs in the library and download the offline engine once. Recognition then happens entirely on this device.
 
 [Directions go in square brackets, on their own line or inside a paragraph.]
 
@@ -198,6 +204,68 @@ async function doImport(file) {
   } catch { toast('That file is not an AutoCue backup.'); }
 }
 
+/* ────────────────────── voice packs dialog ────────────────────── */
+
+async function openVoicePacks() {
+  const dlg = $('#dlg-voice');
+  dlg.showModal();
+  refreshMoonRow();
+  $('#vp-native').textContent = 'checking…'; $('#vp-native-btn').hidden = true;
+  const avail = await nativeLocalAvailability();
+  $('#vp-native').textContent = {
+    available: 'Installed — Voice mode uses it automatically',
+    downloadable: 'Available — Chrome downloads it once',
+    downloading: 'Downloading…',
+    unavailable: 'Not offered for this device/language yet',
+    unsupported: 'Not supported by this browser yet',
+  }[avail] || avail;
+  $('#vp-native-btn').hidden = avail !== 'downloadable';
+}
+function refreshMoonRow() {
+  const ready = store.settings.moonshine === 'ready';
+  $('#vp-moon').textContent = ready
+    ? 'Downloaded — Voice works fully offline'
+    : 'Not downloaded (~80 MB, one-off, needs internet)';
+  $('#vp-moon-btn').textContent = ready ? 'Remove' : 'Download';
+}
+async function nativePackInstall() {
+  const btn = $('#vp-native-btn');
+  btn.disabled = true; $('#vp-native').textContent = 'Downloading…';
+  const ok = await installNativePack();
+  btn.disabled = false;
+  $('#vp-native').textContent = ok ? 'Installed — Voice mode uses it automatically'
+                                   : 'Download failed — try again later';
+  btn.hidden = !!ok;
+}
+async function moonPackToggle() {
+  const btn = $('#vp-moon-btn');
+  if (store.settings.moonshine === 'ready') {
+    await removeMoonshine();
+    store.settings.moonshine = 'none'; save(); refreshMoonRow();
+    return;
+  }
+  btn.disabled = true;
+  $('#vp-moon').textContent = 'Downloading — takes a minute or two…';
+  const seen = {};
+  try {
+    await downloadMoonshine(p => {
+      if (p.status === 'progress' && p.file) {
+        seen[p.file] = p.loaded || 0;
+        const mb = Object.values(seen).reduce((a, b) => a + b, 0) / 1048576;
+        $('#vp-moon').textContent = `Downloading… ${mb.toFixed(0)} MB`;
+      } else if (p.status === 'ready') {
+        $('#vp-moon').textContent = 'Preparing engine…';
+      }
+    });
+    store.settings.moonshine = 'ready'; save();
+    try { await navigator.storage.persist(); } catch {} // ask the browser not to evict it
+  } catch (e) {
+    console.warn('offline voice download failed:', e);
+    $('#vp-moon').textContent = 'Download failed — are you online?';
+  }
+  btn.disabled = false; refreshMoonRow();
+}
+
 /* ─────────────────────────── editor ─────────────────────────── */
 
 let editingId = null;
@@ -281,7 +349,7 @@ function renderScriptInto(root, body) {
 const P = {
   piece: null, tokens: [], spans: [], offsets: [],
   pos: 0, mode: 'auto', playing: false,
-  raf: 0, lastT: 0, scrollF: 0, rec: null, wl: null,
+  raf: 0, lastT: 0, scrollF: 0, wl: null,
 };
 const scroller = () => $('#scroller');
 const readingOffset = () => scroller().clientHeight * 0.33;
@@ -368,36 +436,29 @@ function tick(t) {
   P.raf = requestAnimationFrame(tick);
 }
 
-/* voice engine */
+/* voice engine — the chain (on-device → offline engine → online) lives in voice.js */
 function startVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast('Voice-follow not supported in this browser — using Auto'); setMode('auto'); return; }
-  const r = new SR();
-  r.lang = 'en-GB'; r.continuous = true; r.interimResults = true;
-  r.onresult = e => {
-    const words = [];
-    for (let i = Math.max(0, e.results.length - 3); i < e.results.length; i++)
-      words.push(...normWords(e.results[i][0].transcript));
-    const np = advance(P.tokens, P.pos, words.slice(-10));
-    if (np > P.pos) { setPos(np); scrollToPos(); }
-  };
-  r.onerror = ev => {
-    if (ev.error === 'no-speech' || ev.error === 'aborted') return;
-    toast(`Voice error (${ev.error}) — switched to Auto`);
-    setMode('auto'); if (!P.playing) play();
-  };
-  r.onend = () => {
-    if (P.rec === r && P.mode === 'voice' && P.playing)
-      setTimeout(() => { try { r.start(); } catch {} }, 250);
-  };
-  P.rec = r;
-  try { r.start(); } catch {}
+  voiceStart({
+    scriptTokens: P.tokens,
+    moonshineReady: store.settings.moonshine === 'ready',
+    onWords: words => {
+      const np = advance(P.tokens, P.pos, words);
+      if (np > P.pos) { setPos(np); scrollToPos(); }
+    },
+    onEngine: name => {
+      toast(`Listening — ${name}`);
+      if (name === 'online' && !store.settings.voiceTipShown) {
+        store.settings.voiceTipShown = true; save();
+        setTimeout(() => toast('Tip: “🎙 Voice packs” in the library enables offline voice'), 3200);
+      }
+    },
+    onFatal: () => {
+      toast('Voice unavailable — switched to Auto');
+      setMode('auto'); play();
+    },
+  });
 }
-function stopVoice() {
-  if (!P.rec) return;
-  const r = P.rec; P.rec = null;
-  try { r.stop(); } catch {}
-}
+function stopVoice() { voiceStop(); }
 
 /* play / pause / modes */
 function play() {
@@ -558,6 +619,10 @@ function bind() {
   $('#btn-new-ceremony').onclick = newCeremony;
   $('#btn-export').onclick = doExport;
   $('#btn-import').onclick = () => $('#file-import').click();
+  $('#btn-voice').onclick = openVoicePacks;
+  $('#vp-close').onclick = () => $('#dlg-voice').close();
+  $('#vp-native-btn').onclick = nativePackInstall;
+  $('#vp-moon-btn').onclick = moonPackToggle;
   $('#file-import').onchange = e => { if (e.target.files[0]) doImport(e.target.files[0]); e.target.value = ''; };
   $('#search').oninput = renderLibrary;
 

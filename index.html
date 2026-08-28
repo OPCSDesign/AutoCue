@@ -21,6 +21,7 @@
       <button id="btn-new-ceremony" class="btn">+ Ceremony</button>
       <button id="btn-export" class="btn">Export</button>
       <button id="btn-import" class="btn">Import</button>
+      <button id="btn-voice" class="btn">🎙 Voice packs</button>
       <input type="file" id="file-import" accept=".json,application/json" hidden>
     </div>
     <input id="search" type="search" placeholder="Search all pieces…" autocomplete="off">
@@ -72,6 +73,21 @@
   </footer>
   <div id="pill" hidden></div>
 </section>
+
+<dialog id="dlg-voice">
+  <h2>Voice packs</h2>
+  <p class="dlg-sub">Offline voice keeps recognition on this device — Voice mode then needs no
+  internet, and nothing you say leaves the room.</p>
+  <div class="pack">
+    <div><strong>Chrome on-device pack</strong><br><span id="vp-native" class="dim">checking…</span></div>
+    <button id="vp-native-btn" class="btn" hidden>Download</button>
+  </div>
+  <div class="pack">
+    <div><strong>Offline engine (Moonshine)</strong><br><span id="vp-moon" class="dim"></span></div>
+    <button id="vp-moon-btn" class="btn">Download</button>
+  </div>
+  <button id="vp-close" class="btn accent">Close</button>
+</dialog>
 
 <div id="toast" hidden></div>
 <script type="module" src="app.js"></script>
