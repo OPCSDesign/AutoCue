@@ -847,7 +847,7 @@ function bindPrompterGestures() {
    ↑/PgUp = back a few lines · ↓/PgDn = forward · ←/→ = previous/next piece
    Space/Enter = pause-resume · Home = restart piece */
 addEventListener('keydown', e => {
-  if (screen !== 'prompter' || e.target.matches('input,textarea,select')) return;
+  if (screen !== 'prompter' || (e.target instanceof Element && e.target.matches('input,textarea,select'))) return;
   const k = e.key;
   const togglePlay = () => P.mode === 'manual' ? showBars() : (P.playing ? pause() : play());
   if (k === ' ' || k === 'Enter') { e.preventDefault(); togglePlay(); }
