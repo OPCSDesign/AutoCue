@@ -6,7 +6,7 @@
 // Pure helpers are exported for test-webdav.mjs; only the client section
 // touches the network.
 
-const NC_KEY = 'autocue.nc';
+const NC_KEY = 'tracingboard.nc';
 
 // Older stored configs predate mode/path — they were Nextcloud with an
 // AutoCue folder at the root, and must keep working untouched.

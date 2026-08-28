@@ -1,7 +1,7 @@
 # TracingBoard
 
-*Formerly AutoCue — the repository, URL and Nextcloud folder keep the original
-name so existing installs never break.*
+*Formerly AutoCue. Libraries and cloud folders created under the old name
+keep working — the app migrates device data automatically.*
 
 A personal teleprompter that runs as an installable web app (PWA) on a phone,
 tablet or PC — built for delivering speeches and ceremonial ritual from a

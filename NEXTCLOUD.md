@@ -88,23 +88,23 @@ RewriteRule ^remote\.php/dav/ - [R=204,L]
 **Caddy**:
 
 ```caddy
-@autocue_cors {
+@tracingboard_cors {
     path /remote.php/dav/*
     header Origin https://opcsdesign.github.io
 }
-header @autocue_cors {
+header @tracingboard_cors {
     Access-Control-Allow-Origin "https://opcsdesign.github.io"
     Access-Control-Allow-Methods "GET, PUT, PROPFIND, MKCOL, OPTIONS"
     Access-Control-Allow-Headers "Authorization, Content-Type, Depth, If-Match, If-None-Match"
     Access-Control-Expose-Headers "ETag"
     Access-Control-Allow-Credentials "true"
 }
-@autocue_preflight {
+@tracingboard_preflight {
     method OPTIONS
     path /remote.php/dav/*
     header Origin https://opcsdesign.github.io
 }
-respond @autocue_preflight 204
+respond @tracingboard_preflight 204
 ```
 
 **Nginx Proxy Manager**: paste the nginx block above into the proxy host's

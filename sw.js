@@ -1,6 +1,6 @@
 // Cache-first app shell so TracingBoard keeps working with no signal.
-// voice.js and moonshine.js find this cache by its 'autocue-' prefix.
-const CACHE = 'autocue-v11';
+// voice.js and moonshine.js find this cache by its 'tracingboard-' prefix.
+const CACHE = 'tracingboard-v1';
 const SHELL = ['./', './index.html', './style.css', './app.js', './matcher.js',
                './voice.js', './moonshine.js', './webdav.js',
                './manifest.webmanifest', './icon-192.png', './icon-512.png'];

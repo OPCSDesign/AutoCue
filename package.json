@@ -1,8 +1,8 @@
 {
-  "name": "autocue-dev",
+  "name": "tracingboard-dev",
   "private": true,
   "type": "module",
-  "description": "Dev-only: test tooling for AutoCue (the app itself has no dependencies or build step).",
+  "description": "Dev-only: test tooling for TracingBoard (the app itself has no dependencies or build step).",
   "scripts": {
     "test": "node test-matcher.mjs && node test-webdav.mjs && node test-moonshine.mjs"
   },

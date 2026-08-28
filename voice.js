@@ -105,7 +105,7 @@ export async function removeMoonshine() {
   const keep = [];
   try {
     // find the app cache by prefix so sw.js version bumps don't need syncing here
-    const name = (await caches.keys()).find(k => k.startsWith('autocue-'));
+    const name = (await caches.keys()).find(k => k.startsWith('tracingboard-'));
     if (!name) return 0;
     const cache = await caches.open(name);
     for (const req of await cache.keys()) {

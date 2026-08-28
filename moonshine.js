@@ -57,7 +57,7 @@ const MODEL_FILES = [
 export async function download(progress) {
   await loadPipeline(progress);
   // find the app cache by prefix so sw.js version bumps don't need syncing here
-  const name = (await caches.keys()).find(k => k.startsWith('autocue-')) || 'autocue-v4';
+  const name = (await caches.keys()).find(k => k.startsWith('tracingboard-')) || 'tracingboard-v1';
   const c = await caches.open(name);
   await c.addAll([
     ...MODEL_FILES.map(f => new URL('models/moonshine-tiny/' + f, document.baseURI).href),

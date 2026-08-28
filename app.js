@@ -9,7 +9,15 @@ const ncMode = () => !!NC.ncConfig();
 
 const $ = s => document.querySelector(s);
 const uuid = () => crypto.randomUUID();
-const KEY = 'autocue.v1';
+const KEY = 'tracingboard.v1';
+
+// One-time migration from the AutoCue era: same origin, new key names —
+// the library and cloud sign-in carry straight over to the renamed app.
+if (!localStorage.getItem(KEY) && localStorage.getItem('autocue.v1')) {
+  localStorage.setItem(KEY, localStorage.getItem('autocue.v1'));
+  const oldNc = localStorage.getItem('autocue.nc');
+  if (oldNc && !localStorage.getItem('tracingboard.nc')) localStorage.setItem('tracingboard.nc', oldNc);
+}
 const CUR_LEN = 10;          // tokens highlighted as the "current passage"
 
 /* ─────────────────────────── store ─────────────────────────── */
@@ -209,7 +217,7 @@ function deleteCeremony(id) {
 /* ─────────────────────── export / import ─────────────────────── */
 
 function doExport() {
-  const data = { app: 'autocue', version: 1, exported: new Date().toISOString(),
+  const data = { app: 'tracingboard', version: 1, exported: new Date().toISOString(),
                  ceremonies: store.ceremonies, pieces: store.pieces };
   const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
   const a = document.createElement('a');
