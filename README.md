@@ -1,4 +1,4 @@
-# Tracing Board
+# TracingBoard
 
 *Formerly AutoCue — the repository, URL and Nextcloud folder keep the original
 name so existing installs never break.*

@@ -1,5 +1,5 @@
 {
-  "name": "Tracing Board",
+  "name": "TracingBoard",
   "short_name": "TracingBoard",
   "description": "Personal ritual teleprompter with voice-follow, autoscroll and manual modes.",
   "start_url": ".",

@@ -1,6 +1,6 @@
-# Tracing Board ↔ Nextcloud setup
+# TracingBoard ↔ Nextcloud setup
 
-Tracing Board can keep its whole library in your Nextcloud so every device
+TracingBoard can keep its whole library in your Nextcloud so every device
 reads the same content, while still caching everything locally for offline
 use. (The folder — like the app's URL and repository — keeps the original
 `AutoCue` name so existing setups never break.)
@@ -21,8 +21,8 @@ AutoCue/
 - A leading `01 - ` style number sets the running order and is hidden from display.
 - Inside a piece: blank line = new paragraph, `[square brackets]` = stage
   direction (shown dim/italic, ignored by voice-follow).
-- Create, rename, move, reorder and delete in any Nextcloud client; Tracing
-  Board picks changes up on its next sync. Text edits made inside the app are
+- Create, rename, move, reorder and delete in any Nextcloud client;
+  TracingBoard picks changes up on its next sync. Text edits made inside the app are
   saved straight back to the file.
 
 ## One-off server setup (CORS)
@@ -48,7 +48,7 @@ your server explicitly allows the app's origin. Two routes — pick one:
 Add to the server block / vhost that fronts Nextcloud. **nginx**:
 
 ```nginx
-# Tracing Board browser access to WebDAV
+# TracingBoard browser access to WebDAV
 location /remote.php/dav/ {
     if ($http_origin = "https://opcsdesign.github.io") {
         add_header Access-Control-Allow-Origin $http_origin always;
@@ -106,9 +106,9 @@ Advanced → Custom Nginx Configuration.
 ## Connecting a device
 
 1. In Nextcloud: Settings → Security → Devices & sessions → create an **app
-   password** (name it e.g. “Tracing Board phone”). One per device; revocable
+   password** (name it e.g. “TracingBoard phone”). One per device; revocable
    individually.
-2. In Tracing Board: ☰ → ☁ Nextcloud → enter server address, username, app password →
+2. In TracingBoard: ☰ → ☁ Nextcloud → enter server address, username, app password →
    Connect.
 3. First device with existing content: use **Upload** when offered — it
    creates the folder structure from your current library. Every other device

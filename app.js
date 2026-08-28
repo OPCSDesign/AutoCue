@@ -29,10 +29,10 @@ function seed() {
     ceremonies: [{ id: cid, name: 'Start here', order: 0 }],
     pieces: [
       {
-        id: uuid(), title: 'Welcome to Tracing Board', ceremonyId: cid, order: 0,
+        id: uuid(), title: 'Welcome to TracingBoard', ceremonyId: cid, order: 0,
         body: `[This is a stage direction — shown dim and italic. Voice-follow ignores it.]
 
-Welcome, Worshipful Master. This is Tracing Board, your personal ritual prompter.
+Welcome, Worshipful Master. This is TracingBoard, your personal ritual prompter.
 
 Tap anywhere to pause or resume. Drag with a finger to move through the text freely. The arrow button below steps back four lines whenever you need to retrace your words.
 
@@ -226,7 +226,7 @@ async function doImport(file) {
     store.ceremonies = data.ceremonies; store.pieces = data.pieces;
     save(); renderLibrary();
     toast(`Imported ${data.pieces.length} pieces`);
-  } catch { toast('That file is not a Tracing Board backup.'); }
+  } catch { toast('That file is not a TracingBoard backup.'); }
 }
 
 /* ─────────────────────── nextcloud sync ─────────────────────── */
