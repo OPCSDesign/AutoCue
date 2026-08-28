@@ -1,12 +1,18 @@
 // Cache-first app shell so TracingBoard keeps working with no signal.
 // voice.js and moonshine.js find this cache by its 'autocue-' prefix.
-const CACHE = 'autocue-v9';
+const CACHE = 'autocue-v10';
 const SHELL = ['./', './index.html', './style.css', './app.js', './matcher.js',
                './voice.js', './moonshine.js', './nextcloud.js',
                './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:'reload' bypasses the HTTP cache — otherwise a new version can
+  // precache stale files served from the browser cache (Pages max-age=600).
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 self.addEventListener('activate', e => {
   e.waitUntil(
