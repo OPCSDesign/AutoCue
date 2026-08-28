@@ -44,15 +44,19 @@ When you are ready, press Exit and add your first piece.`
       },
       {
         id: uuid(), title: 'Writing and transferring pieces', ceremonyId: cid, order: 1,
-        body: `Prepare your pieces on a computer at this same web address, then press Export in the library to download a single backup file.
+        body: `There are two ways to manage your pieces.
 
-Send that file to this device however you like — email, Google Drive, or a cable — then press Import here. Importing replaces the content on this device with the file, so edit in one place and export afterwards.
+The simple way: create and edit them right here, using the pencil and the plus Piece button. Everything then lives on this device alone.
 
-For Voice mode without internet, open Voice packs in the library and download the offline engine once. Recognition then happens entirely on this device.
+The better way, if you use more than one device: keep the whole library in Nextcloud. Open the menu, choose Nextcloud, and connect with your server address and an app password. The one-off server preparation is described in the NEXTCLOUD guide in the AutoCue repository.
 
-[Directions go in square brackets, on their own line or inside a paragraph.]
+[In Nextcloud: an AutoCue folder, one folder per ceremony, one .md file per piece.]
 
-A blank line starts a new paragraph. Nothing else is needed.`
+Give files a number to set the running order, such as 01 - Opening Address.md — the numbers stay hidden here. A blank line starts a new paragraph, and directions go in square brackets.
+
+Once connected, edit pieces anywhere: in any editor on your computer, in the Nextcloud apps, or right here — edits made here are saved straight back. Rename, reorder, move or delete pieces in Nextcloud's files app, then tap Sync. The app always keeps an offline copy, so nothing depends on a connection when it matters.
+
+Two last things live in the menu: Voice packs, where one download makes Voice mode work without internet, and the Nextcloud dialog's Export and Import, kept as an occasional backup.`
       },
     ],
     settings: { fs: 28, speed: 1.0, mode: 'auto', openCeremonies: [cid] }, // tutorial starts open
