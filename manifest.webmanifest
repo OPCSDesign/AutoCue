@@ -1,7 +1,7 @@
 {
-  "name": "AutoCue",
-  "short_name": "AutoCue",
-  "description": "Personal teleprompter with voice-follow, autoscroll and manual modes.",
+  "name": "Tracing Board",
+  "short_name": "TracingBoard",
+  "description": "Personal ritual teleprompter with voice-follow, autoscroll and manual modes.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

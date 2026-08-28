@@ -1,4 +1,7 @@
-# AutoCue
+# Tracing Board
+
+*Formerly AutoCue — the repository, URL and Nextcloud folder keep the original
+name so existing installs never break.*
 
 A personal teleprompter that runs as an installable web app (PWA) on a phone,
 tablet or PC — built for delivering speeches and ceremonial ritual from a

@@ -29,10 +29,10 @@ function seed() {
     ceremonies: [{ id: cid, name: 'Start here', order: 0 }],
     pieces: [
       {
-        id: uuid(), title: 'Welcome to AutoCue', ceremonyId: cid, order: 0,
+        id: uuid(), title: 'Welcome to Tracing Board', ceremonyId: cid, order: 0,
         body: `[This is a stage direction — shown dim and italic. Voice-follow ignores it.]
 
-Welcome, Worshipful Master. This is AutoCue, your personal teleprompter.
+Welcome, Worshipful Master. This is Tracing Board, your personal ritual prompter.
 
 Tap anywhere to pause or resume. Drag with a finger to move through the text freely. The arrow button below steps back four lines whenever you need to retrace your words.
 
@@ -48,7 +48,7 @@ When you are ready, press Exit and add your first piece.`
 
 The simple way: create and edit them right here, using the pencil and the plus Piece button. Everything then lives on this device alone.
 
-The better way, if you use more than one device: keep the whole library in Nextcloud. Open the menu, choose Nextcloud, and connect with your server address and an app password. The one-off server preparation is described in the NEXTCLOUD guide in the AutoCue repository.
+The better way, if you use more than one device: keep the whole library in Nextcloud. Open the menu, choose Nextcloud, and connect with your server address and an app password. The one-off server preparation is described in the NEXTCLOUD guide in the app's code repository.
 
 [In Nextcloud: an AutoCue folder, one folder per ceremony, one .md file per piece.]
 
@@ -214,7 +214,7 @@ function doExport() {
   const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `autocue-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `tracingboard-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click(); URL.revokeObjectURL(a.href);
   toast('Backup downloaded');
 }
@@ -226,7 +226,7 @@ async function doImport(file) {
     store.ceremonies = data.ceremonies; store.pieces = data.pieces;
     save(); renderLibrary();
     toast(`Imported ${data.pieces.length} pieces`);
-  } catch { toast('That file is not an AutoCue backup.'); }
+  } catch { toast('That file is not a Tracing Board backup.'); }
 }
 
 /* ─────────────────────── nextcloud sync ─────────────────────── */
