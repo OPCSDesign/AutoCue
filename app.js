@@ -55,7 +55,7 @@ For Voice mode without internet, open Voice packs in the library and download th
 A blank line starts a new paragraph. Nothing else is needed.`
       },
     ],
-    settings: { fs: 28, speed: 1.0, mode: 'auto' },
+    settings: { fs: 28, speed: 1.0, mode: 'auto', openCeremonies: [cid] }, // tutorial starts open
   };
 }
 
@@ -108,7 +108,16 @@ function renderLibrary() {
 
 function groupEl(c) {
   const d = document.createElement('details');
-  d.className = 'cer'; d.open = true;
+  d.className = 'cer';
+  // collapsed by default; the set of open ceremonies persists across visits
+  const key = c ? c.id : '__unfiled';
+  d.open = (store.settings.openCeremonies || []).includes(key);
+  d.addEventListener('toggle', () => {
+    const set = new Set(store.settings.openCeremonies || []);
+    d.open ? set.add(key) : set.delete(key);
+    store.settings.openCeremonies = [...set];
+    save();
+  });
   const sum = document.createElement('summary');
   const items = piecesIn(c ? c.id : null);
   sum.innerHTML = `<span>${esc(c ? c.name : 'Unfiled')}</span><span class="count">${items.length}</span><span class="spacer"></span>`;
