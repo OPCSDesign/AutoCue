@@ -19,12 +19,12 @@
     <div class="lib-actions">
       <button id="btn-new-piece" class="btn accent">+ Piece</button>
       <button id="btn-new-ceremony" class="btn">+ Ceremony</button>
-      <button id="btn-export" class="btn">Export</button>
-      <button id="btn-import" class="btn">Import</button>
+      <button id="btn-sync" class="btn" hidden>⟳ Sync</button>
+      <button id="btn-nc" class="btn">☁ Nextcloud</button>
       <button id="btn-voice" class="btn">🎙 Voice packs</button>
-      <input type="file" id="file-import" accept=".json,application/json" hidden>
     </div>
     <input id="search" type="search" placeholder="Search all pieces…" autocomplete="off">
+    <div id="sync-status" hidden></div>
   </header>
   <main id="lib-list"></main>
   <p class="lib-foot">Content lives only on this device — Export regularly as a backup.</p>
@@ -44,7 +44,7 @@
       <input id="ed-title" placeholder="Title" autocomplete="off">
       <select id="ed-ceremony"></select>
       <textarea id="ed-text" placeholder="Type or paste the piece here…" spellcheck="false"></textarea>
-      <p class="ed-help">Wrap stage directions in [square brackets] — shown dim &amp; italic, ignored by
+      <p class="ed-help" id="ed-help">Wrap stage directions in [square brackets] — shown dim &amp; italic, ignored by
       voice-follow. Blank line starts a new paragraph.</p>
     </div>
     <div class="ed-preview-wrap">
@@ -73,6 +73,41 @@
   </footer>
   <div id="pill" hidden></div>
 </section>
+
+<dialog id="dlg-nc">
+  <h2>Nextcloud</h2>
+  <div id="nc-signin">
+    <p class="dlg-sub">Keep your library in an <strong>AutoCue</strong> folder in Nextcloud — one folder
+    per ceremony, one .md file per piece, “01 - ” prefixes set the running order. Every device reads
+    the same library; this app keeps an offline copy for the lodge.</p>
+    <input id="nc-server" placeholder="https://cloud.example.com" autocomplete="off">
+    <input id="nc-user" placeholder="Username" autocomplete="off">
+    <input id="nc-pass" type="password" placeholder="App password" autocomplete="off">
+    <p class="dlg-sub">Use a dedicated app password (Nextcloud → Settings → Security). One-off server
+    setup for browser access (CORS) is described in NEXTCLOUD.md in the AutoCue repository.</p>
+    <div id="nc-msg" class="dim"></div>
+    <button id="nc-connect" class="btn accent">Connect</button>
+  </div>
+  <div id="nc-connected" hidden>
+    <div class="pack">
+      <div><strong id="nc-account"></strong><br><span id="nc-status" class="dim"></span></div>
+      <button id="nc-sync" class="btn">Sync now</button>
+    </div>
+    <div class="pack" id="nc-migrate-row" hidden>
+      <div><strong>First sync</strong><br><span class="dim" id="nc-migrate-msg">Nextcloud’s AutoCue folder is
+      empty — upload this device’s library to it?</span></div>
+      <button id="nc-migrate" class="btn accent">Upload</button>
+    </div>
+    <button id="nc-signout" class="btn danger">Sign out</button>
+  </div>
+  <div class="pack">
+    <div><strong>Backup file</strong><br><span class="dim">Manual safety copy of this device’s library.</span></div>
+    <span><button id="btn-export" class="btn">Export</button>
+    <button id="btn-import" class="btn">Import</button></span>
+  </div>
+  <input type="file" id="file-import" accept=".json,application/json" hidden>
+  <button id="nc-close" class="btn">Close</button>
+</dialog>
 
 <dialog id="dlg-voice">
   <h2>Voice packs</h2>

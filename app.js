@@ -3,6 +3,9 @@ import {
   startVoice as voiceStart, stopVoice as voiceStop,
   nativeLocalAvailability, installNativePack, downloadMoonshine, removeMoonshine,
 } from './voice.js';
+import * as NC from './nextcloud.js';
+
+const ncMode = () => !!NC.ncConfig();
 
 const $ = s => document.querySelector(s);
 const uuid = () => crypto.randomUUID();
@@ -14,7 +17,8 @@ const CUR_LEN = 10;          // tokens highlighted as the "current passage"
 let store;
 function load() {
   try { store = JSON.parse(localStorage.getItem(KEY)); } catch { store = null; }
-  if (!store || !Array.isArray(store.pieces)) store = seed();
+  if (!store || !Array.isArray(store.pieces))
+    store = ncMode() ? { ceremonies: [], pieces: [], settings: {} } : seed();
   store.settings = Object.assign({ fs: 28, speed: 1.0, mode: 'auto' }, store.settings);
 }
 function save() { localStorage.setItem(KEY, JSON.stringify(store)); }
@@ -108,7 +112,7 @@ function groupEl(c) {
   const sum = document.createElement('summary');
   const items = piecesIn(c ? c.id : null);
   sum.innerHTML = `<span>${esc(c ? c.name : 'Unfiled')}</span><span class="count">${items.length}</span><span class="spacer"></span>`;
-  if (c) {
+  if (c && !ncMode()) {
     for (const [label, fn] of [
       ['↑', () => moveCeremony(c.id, -1)], ['↓', () => moveCeremony(c.id, 1)],
       ['✎', () => renameCeremony(c.id)], ['🗑', () => deleteCeremony(c.id)],
@@ -133,9 +137,10 @@ function pieceRow(p, { showCeremony } = {}) {
   t.innerHTML = esc(p.title) + cname;
   t.onclick = () => openPrompter(p.id);
   row.appendChild(t);
-  for (const [label, fn] of [
-    ['↑', () => movePiece(p.id, -1)], ['↓', () => movePiece(p.id, 1)], ['✎', () => openEditor(p.id)],
-  ]) {
+  const actions = ncMode()
+    ? [['✎', () => openEditor(p.id)]] // rename/move/reorder happen in Nextcloud files
+    : [['↑', () => movePiece(p.id, -1)], ['↓', () => movePiece(p.id, 1)], ['✎', () => openEditor(p.id)]];
+  for (const [label, fn] of actions) {
     const b = document.createElement('button');
     b.className = 'iconbtn'; b.textContent = label; b.onclick = fn;
     row.appendChild(b);
@@ -161,9 +166,16 @@ function moveCeremony(id, dir) {
   [cs[i], cs[j]] = [cs[j], cs[i]];
   reindex(cs); save(); renderLibrary();
 }
-function newCeremony() {
+async function newCeremony() {
   const name = prompt('Ceremony name:');
   if (!name?.trim()) return null;
+  if (ncMode()) {
+    // folder gets the next "NN - " prefix; reuse the piece-filename numbering rules
+    const folder = NC.nextFilename(store.ceremonies.map(c => c.id), name.trim()).replace(/\.md$/, '');
+    try { await NC.mkcol(NC.ncConfig(), folder); } catch (e) { toast('Could not create folder: ' + e.message); return null; }
+    await syncNow({ silent: true });
+    return store.ceremonies.find(c => c.id === folder) || null;
+  }
   const c = { id: uuid(), name: name.trim(), order: store.ceremonies.length };
   store.ceremonies.push(c); save(); renderLibrary();
   return c;
@@ -202,6 +214,118 @@ async function doImport(file) {
     save(); renderLibrary();
     toast(`Imported ${data.pieces.length} pieces`);
   } catch { toast('That file is not an AutoCue backup.'); }
+}
+
+/* ─────────────────────── nextcloud sync ─────────────────────── */
+
+const timeNow = () => new Date().toTimeString().slice(0, 5);
+let syncing = false;
+
+function setSyncStatus(msg) {
+  const el = $('#sync-status');
+  $('#btn-sync').hidden = !ncMode();
+  if (!ncMode()) { el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = msg ||
+    (store.settings.lastSync ? `☁ Synced ${store.settings.lastSync}` : '☁ Not synced yet');
+}
+
+async function syncNow({ silent } = {}) {
+  const cfg = NC.ncConfig();
+  if (!cfg || syncing) return;
+  syncing = true; setSyncStatus('☁ Syncing…');
+  try {
+    const { ceremonies, pieces } = await NC.pull(cfg, store.pieces);
+    if (!pieces.length && store.pieces.length && !store.settings.ncSynced) {
+      // never wipe a local library against a still-empty remote — offer upload instead
+      setSyncStatus();
+      if (!silent) toast('Nextcloud’s AutoCue folder is empty — use Upload in the ☁ dialog first');
+    } else {
+      store.ceremonies = ceremonies; store.pieces = pieces;
+      store.settings.lastSync = timeNow();
+      if (pieces.length) store.settings.ncSynced = true;
+      save(); renderLibrary(); setSyncStatus();
+    }
+  } catch (e) {
+    setSyncStatus();
+    if (!silent) toast('Sync failed — using the copy on this device');
+  }
+  syncing = false;
+}
+
+function refreshNcDialog() {
+  const cfg = NC.ncConfig();
+  $('#nc-signin').hidden = !!cfg;
+  $('#nc-connected').hidden = !cfg;
+  $('#btn-import').disabled = !!cfg;
+  $('#btn-import').title = cfg ? 'Sign out of Nextcloud to import a backup file' : '';
+  if (cfg) {
+    $('#nc-account').textContent = `${cfg.user} @ ${cfg.server.replace(/^https?:\/\//, '')}`;
+    $('#nc-status').textContent = store.settings.lastSync ? `Last sync ${store.settings.lastSync}` : 'Not synced yet';
+  }
+}
+
+async function ncConnect() {
+  const cfg = {
+    server: NC.normalizeServer($('#nc-server').value),
+    user: $('#nc-user').value.trim(),
+    pass: $('#nc-pass').value,
+  };
+  const msg = $('#nc-msg');
+  if (!cfg.server || !cfg.user || !cfg.pass) { msg.textContent = 'Fill in all three fields.'; return; }
+  const btn = $('#nc-connect');
+  btn.disabled = true; msg.textContent = 'Connecting…';
+  try {
+    const status = await NC.checkConnection(cfg);
+    if (status === 'auth') { msg.textContent = 'Sign-in failed — check the username and app password.'; return; }
+    if (status === 'network') {
+      msg.textContent = 'Could not reach the server. Check the address — and that the one-off CORS setup from NEXTCLOUD.md is in place.';
+      return;
+    }
+    if (status === 'missing') await NC.mkcol(cfg, '');
+    const remote = await NC.pull(cfg, []);
+    const hasLocal = store.pieces.length > 0;
+    if (remote.pieces.length && hasLocal &&
+        !confirm('Nextcloud already holds an AutoCue library. Replace the content on this device with it?\n(Export a backup first if unsure.)')) {
+      msg.textContent = 'Cancelled — nothing changed.'; return;
+    }
+    NC.ncSave(cfg);
+    msg.textContent = '';
+    if (remote.pieces.length || !hasLocal) {
+      store.ceremonies = remote.ceremonies; store.pieces = remote.pieces;
+      store.settings.lastSync = timeNow(); store.settings.ncSynced = remote.pieces.length > 0;
+      save(); renderLibrary();
+      toast('Connected to Nextcloud');
+    } else {
+      $('#nc-migrate-row').hidden = false; // fresh remote + local content → offer upload
+    }
+    $('#nc-pass').value = '';
+    refreshNcDialog(); setSyncStatus();
+  } catch (e) {
+    msg.textContent = 'Connection failed: ' + e.message;
+  } finally { btn.disabled = false; }
+}
+
+async function ncMigrate() {
+  const btn = $('#nc-migrate');
+  btn.disabled = true; $('#nc-migrate-msg').textContent = 'Uploading…';
+  try {
+    await NC.migrate(NC.ncConfig(), store);
+    store.settings.ncSynced = true; save();
+    await syncNow({ silent: true });
+    $('#nc-migrate-row').hidden = true;
+    toast('Library uploaded to Nextcloud');
+    refreshNcDialog();
+  } catch (e) {
+    $('#nc-migrate-msg').textContent = 'Upload failed: ' + e.message;
+  } finally { btn.disabled = false; }
+}
+
+function ncSignOut() {
+  if (!confirm('Sign out of Nextcloud on this device? The library stays here as a local copy.')) return;
+  NC.ncSignOut();
+  store.settings.ncSynced = false; save();
+  refreshNcDialog(); setSyncStatus(); renderLibrary();
 }
 
 /* ────────────────────── voice packs dialog ────────────────────── */
@@ -272,10 +396,16 @@ let editingId = null;
 function openEditor(id) {
   editingId = id;
   const p = id ? store.pieces.find(x => x.id === id) : null;
+  const locked = ncMode() && !!p; // rename/move via Nextcloud files, not here
   $('#ed-title').value = p?.title || '';
+  $('#ed-title').disabled = locked;
   $('#ed-text').value = p?.body || '';
   fillCeremonySelect(p?.ceremonyId || '');
-  $('#ed-delete').style.visibility = p ? 'visible' : 'hidden';
+  $('#ed-ceremony').disabled = locked;
+  $('#ed-delete').style.visibility = p && !ncMode() ? 'visible' : 'hidden';
+  $('#ed-help').textContent = ncMode()
+    ? 'Text edits save back to Nextcloud. Rename, move, reorder or delete pieces in the Nextcloud files app. [Square brackets] = stage directions; blank line = new paragraph.'
+    : 'Wrap stage directions in [square brackets] — shown dim & italic, ignored by voice-follow. Blank line starts a new paragraph.';
   renderScriptInto($('#ed-preview'), p?.body || '');
   enterSub('editor');
 }
@@ -285,11 +415,32 @@ function fillCeremonySelect(sel) {
   for (const c of ceremonies()) s.append(new Option(c.name, c.id, false, c.id === sel));
   s.append(new Option('+ New ceremony…', '__new'));
 }
-function saveEditor() {
+async function saveEditor() {
   let cid = $('#ed-ceremony').value;
-  if (cid === '__new') { const c = newCeremony(); cid = c ? c.id : ''; fillCeremonySelect(cid); }
+  if (cid === '__new') { const c = await newCeremony(); cid = c ? c.id : ''; fillCeremonySelect(cid); }
   const title = $('#ed-title').value.trim() || 'Untitled';
   const body = $('#ed-text').value;
+
+  if (ncMode()) {
+    const cfg = NC.ncConfig();
+    let p = editingId && store.pieces.find(x => x.id === editingId);
+    if (p) {
+      const r = await NC.pushBody(cfg, p.id, body, p.etag);
+      if (r.conflict) {
+        await syncNow({ silent: true });
+        toast('Changed on another device — refreshed. Your text is still here; Save again to overwrite.');
+        return null; // editor keeps the user's text
+      }
+      p.body = body; p.etag = r.etag; save();
+      return p;
+    }
+    const siblings = store.pieces.filter(x => (x.ceremonyId || null) === (cid || null)).map(x => x.id.split('/').pop());
+    const { path } = await NC.createPiece(cfg, cid || '', NC.nextFilename(siblings, title), body);
+    await syncNow({ silent: true });
+    editingId = path;
+    return store.pieces.find(x => x.id === path) || null;
+  }
+
   let p = editingId && store.pieces.find(x => x.id === editingId);
   if (!p) {
     p = { id: uuid(), title, ceremonyId: cid || null, order: piecesIn(cid || null).length, body };
@@ -619,6 +770,13 @@ function bind() {
   $('#btn-new-ceremony').onclick = newCeremony;
   $('#btn-export').onclick = doExport;
   $('#btn-import').onclick = () => $('#file-import').click();
+  $('#btn-sync').onclick = () => syncNow();
+  $('#btn-nc').onclick = () => { refreshNcDialog(); $('#dlg-nc').showModal(); };
+  $('#nc-close').onclick = () => $('#dlg-nc').close();
+  $('#nc-connect').onclick = ncConnect;
+  $('#nc-sync').onclick = () => { syncNow(); refreshNcDialog(); };
+  $('#nc-migrate').onclick = ncMigrate;
+  $('#nc-signout').onclick = ncSignOut;
   $('#btn-voice').onclick = openVoicePacks;
   $('#vp-close').onclick = () => $('#dlg-voice').close();
   $('#vp-native-btn').onclick = nativePackInstall;
@@ -627,8 +785,14 @@ function bind() {
   $('#search').oninput = renderLibrary;
 
   $('#ed-back').onclick = backToLibrary;
-  $('#ed-save').onclick = () => { saveEditor(); toast('Saved'); };
-  $('#ed-prompt').onclick = () => { const p = saveEditor(); openPrompter(p.id); };
+  $('#ed-save').onclick = async () => {
+    try { if (await saveEditor()) toast('Saved'); }
+    catch (e) { toast('Save failed: ' + e.message); }
+  };
+  $('#ed-prompt').onclick = async () => {
+    try { const p = await saveEditor(); if (p) openPrompter(p.id); }
+    catch (e) { toast('Save failed: ' + e.message); }
+  };
   $('#ed-delete').onclick = deletePiece;
   let prevT;
   $('#ed-text').oninput = () => {
@@ -656,6 +820,8 @@ load();
 bind();
 applyFont();
 renderLibrary();
+setSyncStatus();
+if (ncMode() && navigator.onLine) syncNow({ silent: true });
 
 if ('serviceWorker' in navigator) {
   try { navigator.serviceWorker.register('sw.js'); } catch {}

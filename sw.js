@@ -1,8 +1,8 @@
 // Cache-first app shell so AutoCue keeps working with no signal.
-// Cache name is also referenced by removeMoonshine() in voice.js — keep in sync.
-const CACHE = 'autocue-v2';
+// Cache name is also referenced in voice.js and moonshine.js — keep in sync.
+const CACHE = 'autocue-v3';
 const SHELL = ['./', './index.html', './style.css', './app.js', './matcher.js',
-               './voice.js', './moonshine.js',
+               './voice.js', './moonshine.js', './nextcloud.js',
                './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -17,11 +17,16 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  // Never touch cross-origin requests (Nextcloud, etc.) or WebDAV paths —
+  // cache-first would serve stale bodies and the offline fallback would
+  // corrupt failed API responses with index.html.
+  if (url.origin !== location.origin || url.pathname.includes('/remote.php/')) return;
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then(hit =>
       hit ||
       fetch(e.request).then(res => {
-        if (res.ok && res.status === 200 && new URL(e.request.url).origin === location.origin) {
+        if (res.ok && res.status === 200) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
         }

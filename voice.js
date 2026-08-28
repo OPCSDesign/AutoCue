@@ -104,7 +104,7 @@ export async function downloadMoonshine(progress) {
 export async function removeMoonshine() {
   const keep = [];
   try {
-    const cache = await caches.open('autocue-v2');
+    const cache = await caches.open('autocue-v3');
     for (const req of await cache.keys()) {
       if (/\/vendor\/transformers\/|\/models\//.test(req.url)) await cache.delete(req);
       else keep.push(req.url);
